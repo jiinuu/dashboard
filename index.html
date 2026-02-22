@@ -1,0 +1,1090 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>조별활동 대시보드 | 현황·원인·타겟</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0a0f1e;
+      --bg-secondary: #111827;
+      --bg-card: rgba(30, 41, 70, 0.55);
+      --border: rgba(99, 130, 190, 0.18);
+      --text-primary: #e8edf5;
+      --text-secondary: #8b9dc3;
+      --text-muted: #5a6d8e;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.12);
+      --red: #f43f5e;
+      --red-dim: rgba(244, 63, 94, 0.12);
+      --orange: #f59e0b;
+      --purple: #a78bfa;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, var(--bg-primary) 0%, #0d1529 50%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px 24px 40px;
+    }
+
+    /* ─── Top Bar ─── */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 20px 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+    }
+
+    .topbar h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #e0e7ff, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .topbar .sub {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .pill {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 999px;
+      text-decoration: none;
+      color: var(--text-secondary);
+      background: rgba(15, 23, 42, 0.6);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.25s;
+    }
+
+    .pill:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+
+    /* ─── Reading Guide ─── */
+    .reading-guide {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 14px 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }
+
+    .rg-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+    }
+
+    .rg-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .rg-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .rg-arrow {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Filter Bar ─── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 14px 20px;
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+    }
+
+    .filter-bar label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    select,
+    input[type="text"] {
+      padding: 8px 12px;
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus,
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(15, 23, 42, 0.5);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+      background: var(--accent-glow);
+    }
+
+    button.active {
+      background: var(--accent-glow);
+      border-color: rgba(59, 130, 246, 0.4);
+      color: var(--accent);
+    }
+
+    /* ─── Card ─── */
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: border-color 0.3s;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 130, 190, 0.3);
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent-glow);
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .card-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    /* ─── KPI Grid ─── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 800px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+      transition: all 0.3s;
+    }
+
+    .kpi-card:hover {
+      border-color: rgba(99, 130, 190, 0.35);
+      transform: translateY(-2px);
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .kpi-donut {
+      width: 100%;
+      height: 80px;
+    }
+
+    .kpi-value {
+      font-size: 20px;
+      font-weight: 800;
+      margin-top: 6px;
+    }
+
+    .kpi-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ─── Section Grid ─── */
+    .section {
+      margin-bottom: 16px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 800px) {
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ─── SVG ─── */
+    svg {
+      width: 100%;
+    }
+
+    svg text {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* ─── Scatter tabs ─── */
+    .scatter-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .scatter-tab {
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(15, 23, 42, 0.4);
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .scatter-tab.active {
+      background: var(--accent-glow);
+      color: var(--accent);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    /* ─── Target Cards Grid ─── */
+    .target-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      max-height: 420px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    @media (max-width: 960px) {
+      .target-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .target-card {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      transition: all 0.25s;
+      cursor: default;
+    }
+
+    .target-card:hover {
+      border-color: rgba(99, 130, 190, 0.35);
+    }
+
+    .target-card.top3 {
+      border-color: rgba(244, 63, 94, 0.35);
+      background: var(--red-dim);
+    }
+
+    .target-rank {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .target-rank .badge-urgent {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .target-card.top3 .badge-urgent {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .target-name {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .target-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .target-bar-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      width: 36px;
+      flex-shrink: 0;
+    }
+
+    .target-bar-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(99, 130, 190, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .target-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.4s;
+    }
+
+    .target-bar-val {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      width: 40px;
+      text-align: right;
+    }
+
+    /* ─── Details ─── */
+    details {
+      background: rgba(15, 23, 42, 0.3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    details .detail-body {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    /* ─── Tooltip ─── */
+    .tooltip {
+      position: fixed;
+      pointer-events: none;
+      opacity: 0;
+      background: rgba(10, 15, 30, 0.95);
+      backdrop-filter: blur(12px);
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      line-height: 1.6;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      transform: translate(12px, 12px);
+      max-width: 300px;
+      z-index: 1000;
+    }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(99, 130, 190, 0.2);
+      border-radius: 3px;
+    }
+
+    /* ─── Animations ─── */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-in {
+      animation: fadeInUp 0.4s ease-out both;
+    }
+
+    .delay-1 {
+      animation-delay: 0.1s;
+    }
+
+    .delay-2 {
+      animation-delay: 0.15s;
+    }
+
+    .delay-3 {
+      animation-delay: 0.2s;
+    }
+
+    .delay-4 {
+      animation-delay: 0.25s;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top Bar -->
+  <div class="topbar animate-in">
+    <div style="min-width:260px;">
+      <h1>📊 조별활동 대시보드</h1>
+      <div class="sub">"현황 → 원인 → 타겟" 순서로 바로 이해하도록 구성</div>
+      <div style="margin-top:10px;">
+        <a class="pill" href="whatif.html">🔧 What-if 시뮬레이션으로 →</a>
+      </div>
+    </div>
+    <div style="flex:1; min-width:280px;">
+      <details open>
+        <summary>📖 용어 설명</summary>
+        <div class="detail-body">
+          • <b style="color:var(--accent)">점수(point_mean)</b>: 조 활동 성과 대표값 (높을수록 좋음)<br />
+          • <b style="color:var(--accent)">온라인비중(online_ratio)</b>: 온라인 활동 비율 (0~1)<br />
+          • <b style="color:var(--accent)">이탈률(leave_rate)</b>: 중도 이탈 비율 (0~1, 낮을수록 좋음)<br />
+          • <b style="color:var(--accent)">전공다양성(major_diversity)</b>: 조 구성 다양성 (0~1, 높을수록 다양)
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- Reading Guide -->
+  <div class="reading-guide animate-in delay-1">
+    <div class="rg-step">
+      <div class="rg-num">1</div>
+      <div class="rg-label">전체 KPI</div>
+    </div>
+    <div class="rg-arrow">→</div>
+    <div class="rg-step">
+      <div class="rg-num">2</div>
+      <div class="rg-label">점수 분포</div>
+    </div>
+    <div class="rg-arrow">→</div>
+    <div class="rg-step">
+      <div class="rg-num">3</div>
+      <div class="rg-label">상·하위 비교</div>
+    </div>
+    <div class="rg-arrow">→</div>
+    <div class="rg-step">
+      <div class="rg-num">4</div>
+      <div class="rg-label">원인 분석</div>
+    </div>
+    <div class="rg-arrow">→</div>
+    <div class="rg-step">
+      <div class="rg-num">5</div>
+      <div class="rg-label">개입 타겟</div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar animate-in delay-2">
+    <label>기수</label>
+    <select id="genSelect" style="min-width:100px;"></select>
+    <label>반</label>
+    <select id="classSelect" style="min-width:100px;"></select>
+    <label>조 검색</label>
+    <input id="groupSearch" type="text" placeholder="예: 10_11_1" style="min-width:120px;" />
+    <button id="resetBtn">초기화</button>
+    <button id="topTargetBtn">🎯 개입 타겟만</button>
+  </div>
+
+  <!-- 1) KPI Cards -->
+  <div class="kpi-grid animate-in delay-3" id="kpiGrid"></div>
+
+  <!-- 2-3) Score Distribution + Rank -->
+  <div class="two-col section animate-in delay-4">
+    <div class="card">
+      <div class="card-title"><span class="num">2</span> 점수 분포</div>
+      <div class="card-desc">전체가 어떻게 분포하는지 보면, 상·중·하의 비율을 한눈에 파악할 수 있습니다.</div>
+      <svg id="histSvg" style="height:320px;"></svg>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="num">3</span> 상·하위 조 비교</div>
+      <div class="card-desc">상위 8개 vs 하위 8개. <span style="color:var(--green)">🟢 상위</span> / <span
+          style="color:var(--red)">🔴 하위</span>를 비교합니다.</div>
+      <svg id="rankSvg" style="height:320px;"></svg>
+    </div>
+  </div>
+
+  <!-- 4-5) Cause + Targets -->
+  <div class="two-col section">
+    <div class="card">
+      <div class="card-title"><span class="num">4</span> 원인 후보 관계 분석</div>
+      <div class="card-desc">온라인비중(-), 이탈률(-), 전공다양성(+)과 점수 간 상관을 확인합니다. 추세선과 상관계수(r)가 자동 표시됩니다.</div>
+      <div class="scatter-tabs" id="scatterTabs">
+        <div class="scatter-tab active" data-mode="online_ratio">온라인비중</div>
+        <div class="scatter-tab" data-mode="leave_rate">이탈률</div>
+        <div class="scatter-tab" data-mode="major_diversity">전공다양성</div>
+      </div>
+      <svg id="scatterSvg" style="height:340px;"></svg>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="num">5</span> 개입 타겟 리스트</div>
+      <div class="card-desc">"지금 개입하면 효과가 큰 조"를 우선순위로 정리합니다. What-if 페이지에서 해결책을 적용해 보세요.</div>
+      <div class="target-grid" id="targetGrid"></div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tip"></div>
+
+  <script>
+    const DATA_FILE = "group_dashboard.csv";
+    const fmt = d3.format(",.3~f");
+    const pct = d3.format(".1%");
+
+    const tip = d3.select("#tip");
+    function showTip(html, e) {
+      tip.style("opacity", 1).html(html)
+        .style("left", (e.clientX) + "px").style("top", (e.clientY) + "px");
+    }
+    function hideTip() { tip.style("opacity", 0); }
+    function toNum(x) { const v = +x; return Number.isFinite(v) ? v : null; }
+    function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+
+    // ─── Donut KPI ───
+    function drawDonut(container, value, maxVal, color, label, fmtFn) {
+      const size = 72;
+      const thick = 6;
+      const r = (size - thick) / 2;
+      const ratio = clamp(value / maxVal, 0, 1);
+
+      const svg = d3.select(container).append("svg")
+        .attr("class", "kpi-donut")
+        .attr("viewBox", `0 0 ${size} ${size}`)
+        .attr("width", "100%").attr("height", "80px");
+
+      const g = svg.append("g").attr("transform", `translate(${size / 2},${size / 2})`);
+
+      // bg arc
+      const arc = d3.arc().innerRadius(r - thick).outerRadius(r)
+        .startAngle(0).endAngle(2 * Math.PI);
+      g.append("path").attr("d", arc()).attr("fill", "rgba(99,130,190,0.1)");
+
+      // value arc
+      const valArc = d3.arc().innerRadius(r - thick).outerRadius(r)
+        .startAngle(0).endAngle(ratio * 2 * Math.PI).cornerRadius(3);
+      g.append("path").attr("d", valArc()).attr("fill", color);
+
+      // center text
+      g.append("text").attr("text-anchor", "middle").attr("dominant-baseline", "central")
+        .attr("fill", color).attr("font-size", "13px").attr("font-weight", "800")
+        .text(fmtFn(value));
+    }
+
+    Promise.all([d3.csv(DATA_FILE)]).then(([raw]) => {
+      const data = raw.map(d => ({
+        group_id: (d.group_id ?? "").trim(),
+        generation: (d.generation ?? "").trim(),
+        class_code: (d.class_code ?? "").trim(),
+        n_members: toNum(d.n_members),
+        online_ratio: toNum(d.online_ratio),
+        master_ratio: toNum(d.master_ratio),
+        major_diversity: toNum(d.major_diversity),
+        leave_rate: toNum(d.leave_rate),
+        point_mean: toNum(d.point_mean)
+      })).filter(d => d.group_id);
+
+      // Controls
+      const genSelect = d3.select("#genSelect");
+      const classSelect = d3.select("#classSelect");
+      const groupSearch = d3.select("#groupSearch");
+
+      const gens = ["ALL", ...Array.from(new Set(data.map(d => d.generation))).filter(Boolean).sort()];
+      genSelect.selectAll("option").data(gens).join("option").attr("value", d => d).text(d => d === "ALL" ? "전체" : d);
+
+      function classesForGen(gen) {
+        const subset = (gen === "ALL") ? data : data.filter(d => d.generation === gen);
+        const cls = ["ALL", ...Array.from(new Set(subset.map(d => d.class_code))).filter(Boolean).sort()];
+        classSelect.selectAll("option").data(cls).join("option").attr("value", d => d).text(d => d === "ALL" ? "전체" : d);
+      }
+      classesForGen("ALL");
+
+      genSelect.on("change", () => { classesForGen(genSelect.property("value")); classSelect.property("value", "ALL"); update(); });
+      classSelect.on("change", () => update());
+      groupSearch.on("input", () => update());
+
+      let showTargetsOnly = false;
+      d3.select("#topTargetBtn").on("click", () => {
+        showTargetsOnly = !showTargetsOnly;
+        d3.select("#topTargetBtn").classed("active", showTargetsOnly);
+        d3.select("#topTargetBtn").text(showTargetsOnly ? "전체 보기" : "🎯 개입 타겟만");
+        update();
+      });
+      d3.select("#resetBtn").on("click", () => {
+        genSelect.property("value", "ALL");
+        classesForGen("ALL");
+        classSelect.property("value", "ALL");
+        groupSearch.property("value", "");
+        showTargetsOnly = false;
+        d3.select("#topTargetBtn").classed("active", false).text("🎯 개입 타겟만");
+        update();
+      });
+
+      let xMode = "online_ratio";
+      d3.selectAll(".scatter-tab").on("click", function () {
+        d3.selectAll(".scatter-tab").classed("active", false);
+        d3.select(this).classed("active", true);
+        xMode = this.getAttribute("data-mode");
+        update();
+      });
+
+      function filtered() {
+        const gen = genSelect.property("value");
+        const cls = classSelect.property("value");
+        const q = (groupSearch.property("value") || "").trim();
+        let rows = data.slice();
+        if (gen !== "ALL") rows = rows.filter(d => d.generation === gen);
+        if (cls !== "ALL") rows = rows.filter(d => d.class_code === cls);
+        if (q) rows = rows.filter(d => d.group_id.includes(q));
+
+        const pVals = rows.map(d => d.point_mean).filter(v => v != null);
+        const pMed = pVals.length ? d3.median(pVals) : 0;
+        rows = rows.map(d => {
+          const point = d.point_mean ?? pMed;
+          const leave = d.leave_rate ?? 0;
+          const online = d.online_ratio ?? 0;
+          const div = d.major_diversity ?? 0;
+          const urgency = (pMed - point) * 0.9 + leave * 0.9 + online * 0.5 + (1 - div) * 0.5;
+          return { ...d, urgency };
+        });
+        if (showTargetsOnly) {
+          rows = rows.slice().sort((a, b) => d3.descending(a.urgency, b.urgency)).slice(0, 30);
+        }
+        return rows;
+      }
+
+      // ─── KPIs ───
+      function renderKPIs(rows) {
+        const grid = d3.select("#kpiGrid");
+        grid.selectAll("*").remove();
+        const n = rows.length;
+        const avgPoint = n ? d3.mean(rows, d => d.point_mean) : null;
+        const avgOnline = n ? d3.mean(rows, d => d.online_ratio) : null;
+        const avgLeave = n ? d3.mean(rows, d => d.leave_rate) : null;
+        const avgDiv = n ? d3.mean(rows, d => d.major_diversity) : null;
+
+        const kpis = [
+          { label: "대상 조 수", value: n, max: data.length, color: "var(--accent)", fmt: d => String(d), sub: "" },
+          { label: "평균 점수", value: avgPoint, max: 6, color: "var(--green)", fmt: fmt, sub: (() => { const a = rows.map(d => d.point_mean).filter(v => v != null).sort(d3.ascending); return a.length ? `Q1: ${fmt(d3.quantile(a, 0.25))} | Q3: ${fmt(d3.quantile(a, 0.75))}` : "" })() },
+          { label: "평균 온라인비중", value: avgOnline, max: 1, color: "var(--orange)", fmt: fmt, sub: "" },
+          { label: "평균 이탈률", value: avgLeave, max: 1, color: "var(--red)", fmt: pct, sub: "낮을수록 좋음" }
+        ];
+
+        kpis.forEach(k => {
+          if (k.value == null) return;
+          const card = grid.append("div").attr("class", "kpi-card");
+          card.append("div").attr("class", "kpi-label").text(k.label);
+
+          const donutContainer = card.append("div").node();
+          drawDonut(donutContainer, k.value, k.max, k.color, k.label, k.fmt);
+
+          card.append("div").attr("class", "kpi-value").style("color", k.color).text(k.fmt(k.value));
+          if (k.sub) card.append("div").attr("class", "kpi-sub").text(k.sub);
+        });
+      }
+
+      // ─── Histogram ───
+      function renderHist(rows) {
+        const svg = d3.select("#histSvg"); svg.selectAll("*").remove();
+        const width = svg.node().clientWidth; const height = 320;
+        const margin = { top: 10, right: 14, bottom: 40, left: 50 };
+
+        const vals = rows.map(d => d.point_mean).filter(v => v != null);
+        if (vals.length < 2) {
+          svg.append("text").attr("x", margin.left + 10).attr("y", margin.top + 20)
+            .attr("fill", "#5a6d8e").attr("font-size", "12px").text("표시할 데이터가 부족합니다.");
+          return;
+        }
+
+        const x = d3.scaleLinear().domain(d3.extent(vals)).nice().range([margin.left, width - margin.right]);
+        const bins = d3.bin().domain(x.domain()).thresholds(14)(vals);
+        const y = d3.scaleLinear().domain([0, d3.max(bins, d => d.length)]).nice().range([height - margin.bottom, margin.top]);
+
+        // Gradient definition
+        const defs = svg.append("defs");
+        const grad = defs.append("linearGradient").attr("id", "histGrad").attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
+        grad.append("stop").attr("offset", "0%").attr("stop-color", "#3b82f6").attr("stop-opacity", "0.8");
+        grad.append("stop").attr("offset", "100%").attr("stop-color", "#3b82f6").attr("stop-opacity", "0.15");
+
+        svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`)
+          .call(d3.axisBottom(x).ticks(6).tickFormat(fmt))
+          .selectAll("text,line,path").attr("fill", "#5a6d8e").attr("stroke", "#5a6d8e");
+        svg.append("g").attr("transform", `translate(${margin.left},0)`)
+          .call(d3.axisLeft(y).ticks(5))
+          .selectAll("text,line,path").attr("fill", "#5a6d8e").attr("stroke", "#5a6d8e");
+
+        svg.selectAll("rect.bar").data(bins).join("rect").attr("class", "bar")
+          .attr("x", d => x(d.x0) + 1).attr("y", d => y(d.length))
+          .attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 2))
+          .attr("height", d => y(0) - y(d.length))
+          .attr("rx", 5).attr("fill", "url(#histGrad)")
+          .on("mousemove", (e, d) => showTip(`<b>점수 구간</b>: ${fmt(d.x0)} ~ ${fmt(d.x1)}<br/><b>조 수</b>: ${d.length}`, e))
+          .on("mouseleave", hideTip);
+
+        // Median line
+        const med = d3.median(vals);
+        svg.append("line")
+          .attr("x1", x(med)).attr("x2", x(med))
+          .attr("y1", margin.top).attr("y2", height - margin.bottom)
+          .attr("stroke", "var(--orange)").attr("stroke-width", 2).attr("stroke-dasharray", "6,4").attr("opacity", 0.7);
+        svg.append("text").attr("x", x(med) + 8).attr("y", margin.top + 14)
+          .attr("fill", "var(--orange)").attr("font-size", "11px").attr("font-weight", "600")
+          .text(`중앙값: ${fmt(med)}`);
+      }
+
+      // ─── Lollipop Rank ───
+      function renderRank(rows) {
+        const svg = d3.select("#rankSvg"); svg.selectAll("*").remove();
+        const width = svg.node().clientWidth; const height = 320;
+        const margin = { top: 10, right: 14, bottom: 30, left: 85 };
+
+        const r = rows.filter(d => d.point_mean != null).slice().sort((a, b) => d3.descending(a.point_mean, b.point_mean));
+        if (r.length < 2) {
+          svg.append("text").attr("x", margin.left + 10).attr("y", margin.top + 20)
+            .attr("fill", "#5a6d8e").attr("font-size", "12px").text("표시할 데이터가 부족합니다.");
+          return;
+        }
+
+        const top8 = r.slice(0, 8);
+        const bot8 = r.slice(-8).reverse();
+        const show = top8.concat(bot8);
+
+        const y = d3.scaleBand().domain(show.map(d => d.group_id)).range([margin.top, height - margin.bottom]).padding(0.35);
+        const x = d3.scaleLinear().domain([d3.min(show, d => d.point_mean) - 0.2, d3.max(show, d => d.point_mean) + 0.2]).nice()
+          .range([margin.left, width - margin.right]);
+
+        svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`)
+          .call(d3.axisBottom(x).ticks(5).tickFormat(fmt))
+          .selectAll("text,line,path").attr("fill", "#5a6d8e").attr("stroke", "#5a6d8e");
+        svg.append("g").attr("transform", `translate(${margin.left},0)`)
+          .call(d3.axisLeft(y))
+          .selectAll("text").attr("fill", "#8b9dc3").attr("font-size", "10px").attr("font-weight", "600");
+        svg.select(".domain").attr("stroke", "#5a6d8e");
+
+        // Lines (lollipop stems)
+        svg.selectAll(".lollipop-line").data(show).join("line")
+          .attr("class", "lollipop-line")
+          .attr("x1", margin.left).attr("x2", d => x(d.point_mean))
+          .attr("y1", d => y(d.group_id) + y.bandwidth() / 2)
+          .attr("y2", d => y(d.group_id) + y.bandwidth() / 2)
+          .attr("stroke", (_, i) => i < 8 ? "rgba(34,197,94,0.4)" : "rgba(244,63,94,0.4)")
+          .attr("stroke-width", 2);
+
+        // Dots (lollipop heads)
+        svg.selectAll(".lollipop-dot").data(show).join("circle")
+          .attr("class", "lollipop-dot")
+          .attr("cx", d => x(d.point_mean))
+          .attr("cy", d => y(d.group_id) + y.bandwidth() / 2)
+          .attr("r", 5)
+          .attr("fill", (_, i) => i < 8 ? "#22c55e" : "#f43f5e")
+          .attr("stroke", "rgba(0,0,0,0.3)").attr("stroke-width", 1)
+          .on("mousemove", (e, d) => {
+            showTip(`<b>조</b>: ${d.group_id}<br/><b>점수</b>: ${fmt(d.point_mean)}<br/><b>온라인</b>: ${d.online_ratio == null ? "-" : fmt(d.online_ratio)}<br/><b>이탈률</b>: ${d.leave_rate == null ? "-" : pct(d.leave_rate)}<br/><b>다양성</b>: ${d.major_diversity == null ? "-" : fmt(d.major_diversity)}`, e);
+          })
+          .on("mouseleave", hideTip);
+
+        // Labels
+        svg.append("text").attr("x", margin.left + 4).attr("y", margin.top + 6)
+          .attr("fill", "#5a6d8e").attr("font-size", "10px").attr("font-weight", "600")
+          .text("상위 8 ↑ | 하위 8 ↓");
+      }
+
+      // ─── Scatter ───
+      function renderScatter(rows) {
+        const svg = d3.select("#scatterSvg"); svg.selectAll("*").remove();
+        const width = svg.node().clientWidth; const height = 340;
+        const margin = { top: 10, right: 14, bottom: 50, left: 50 };
+
+        const valid = rows.filter(d => d.point_mean != null && d[xMode] != null);
+        if (valid.length < 3) {
+          svg.append("text").attr("x", margin.left + 10).attr("y", margin.top + 20)
+            .attr("fill", "#5a6d8e").attr("font-size", "12px").text("표시할 데이터가 부족합니다.");
+          return;
+        }
+
+        const x = d3.scaleLinear().domain(d3.extent(valid, d => d[xMode])).nice().range([margin.left, width - margin.right]);
+        const y = d3.scaleLinear().domain(d3.extent(valid, d => d.point_mean)).nice().range([height - margin.bottom, margin.top]);
+
+        // Quadrant backgrounds
+        const xMid = d3.mean(valid, d => d[xMode]);
+        const yMid = d3.mean(valid, d => d.point_mean);
+
+        // Good quadrant (low x + high y for online/leave, high x + high y for diversity)
+        const goodHighX = xMode === "major_diversity";
+
+        // Top-left / Top-right highlighting
+        if (goodHighX) {
+          // High diversity + High score = good (top-right)
+          svg.append("rect")
+            .attr("x", x(xMid)).attr("y", margin.top)
+            .attr("width", width - margin.right - x(xMid)).attr("height", y(yMid) - margin.top)
+            .attr("fill", "rgba(34,197,94,0.04)");
+          // Low diversity + Low score = bad (bottom-left)
+          svg.append("rect")
+            .attr("x", margin.left).attr("y", y(yMid))
+            .attr("width", x(xMid) - margin.left).attr("height", height - margin.bottom - y(yMid))
+            .attr("fill", "rgba(244,63,94,0.04)");
+        } else {
+          // Low online/leave + High score = good (top-left)
+          svg.append("rect")
+            .attr("x", margin.left).attr("y", margin.top)
+            .attr("width", x(xMid) - margin.left).attr("height", y(yMid) - margin.top)
+            .attr("fill", "rgba(34,197,94,0.04)");
+          // High online/leave + Low score = bad (bottom-right)
+          svg.append("rect")
+            .attr("x", x(xMid)).attr("y", y(yMid))
+            .attr("width", width - margin.right - x(xMid)).attr("height", height - margin.bottom - y(yMid))
+            .attr("fill", "rgba(244,63,94,0.04)");
+        }
+
+        svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`)
+          .call(d3.axisBottom(x).ticks(6))
+          .selectAll("text,line,path").attr("fill", "#5a6d8e").attr("stroke", "#5a6d8e");
+        svg.append("g").attr("transform", `translate(${margin.left},0)`)
+          .call(d3.axisLeft(y).ticks(6).tickFormat(fmt))
+          .selectAll("text,line,path").attr("fill", "#5a6d8e").attr("stroke", "#5a6d8e");
+
+        // Trend line
+        const xMean = d3.mean(valid, d => d[xMode]);
+        const yMean = d3.mean(valid, d => d.point_mean);
+        const num = d3.sum(valid, d => (d[xMode] - xMean) * (d.point_mean - yMean));
+        const den = d3.sum(valid, d => (d[xMode] - xMean) * (d[xMode] - xMean));
+        const b1 = den === 0 ? 0 : num / den;
+        const b0 = yMean - b1 * xMean;
+        const [x0v, x1v] = d3.extent(valid, d => d[xMode]);
+        const line = d3.line().x(d => x(d.x)).y(d => y(d.y));
+        svg.append("path")
+          .attr("d", line([{ x: x0v, y: b0 + b1 * x0v }, { x: x1v, y: b0 + b1 * x1v }]))
+          .attr("fill", "none").attr("stroke", "var(--accent)").attr("stroke-width", 2)
+          .attr("opacity", 0.35).attr("stroke-dasharray", "6,4");
+
+        // Correlation annotation
+        const sx = Math.sqrt(d3.sum(valid, d => (d[xMode] - xMean) ** 2));
+        const sy = Math.sqrt(d3.sum(valid, d => (d.point_mean - yMean) ** 2));
+        const corrVal = (sx === 0 || sy === 0) ? 0 : num / (sx * sy);
+        const corrDir = corrVal > 0.05 ? "양(+)의 상관" : (corrVal < -0.05 ? "음(-)의 상관" : "무상관");
+        const corrStrength = Math.abs(corrVal) > 0.3 ? "강한" : (Math.abs(corrVal) > 0.1 ? "약한" : "매우 약한");
+        const corrColor = corrVal > 0.05 ? "var(--green)" : (corrVal < -0.05 ? "var(--red)" : "var(--text-muted)");
+
+        const dirLabel = xMode === "online_ratio"
+          ? (corrVal < 0 ? "오프라인↑ → 점수↑" : "온라인↑ → 점수↑")
+          : xMode === "leave_rate"
+            ? (corrVal < 0 ? "이탈↓ → 점수↑" : "이탈↑ → 점수↑")
+            : (corrVal > 0 ? "다양성↑ → 점수↑" : "다양성↑ → 점수↓");
+
+        svg.append("text")
+          .attr("x", width - margin.right - 4).attr("y", height - margin.bottom - 12)
+          .attr("text-anchor", "end").attr("fill", corrColor)
+          .attr("font-size", "10px").attr("font-weight", "700")
+          .text(`r = ${corrVal.toFixed(2)} (${corrStrength} ${corrDir})`);
+        svg.append("text")
+          .attr("x", width - margin.right - 4).attr("y", height - margin.bottom - 26)
+          .attr("text-anchor", "end").attr("fill", corrColor)
+          .attr("font-size", "11px").attr("font-weight", "800")
+          .text(`→ ${dirLabel}`);
+
+        // Dots
+        svg.selectAll("circle.scatter-dot").data(valid).join("circle").attr("class", "scatter-dot")
+          .attr("cx", d => x(d[xMode])).attr("cy", d => y(d.point_mean))
+          .attr("r", 5)
+          .attr("fill", "rgba(59,130,246,0.3)").attr("stroke", "var(--accent)").attr("stroke-width", 1.5)
+          .on("mousemove", (e, d) => {
+            const xLabel = xMode === "online_ratio" ? "온라인비중" : (xMode === "leave_rate" ? "이탈률" : "전공다양성");
+            const xVal = xMode === "leave_rate" ? pct(d[xMode]) : fmt(d[xMode]);
+            showTip(`<b>조</b>: ${d.group_id}<br/><b>${xLabel}</b>: ${xVal}<br/><b>점수</b>: ${fmt(d.point_mean)}`, e);
+          })
+          .on("mouseleave", hideTip);
+
+        // Axis label
+        const xlabel = xMode === "online_ratio" ? "온라인비중 (0~1)" : (xMode === "leave_rate" ? "이탈률 (0~1)" : "전공다양성 (0~1)");
+        svg.append("text").attr("x", width - margin.right).attr("y", height - 8)
+          .attr("text-anchor", "end").attr("fill", "#5a6d8e").attr("font-size", "10px").attr("font-weight", "600")
+          .text(xlabel);
+        svg.append("text").attr("x", margin.left + 4).attr("y", margin.top + 10)
+          .attr("fill", "#5a6d8e").attr("font-size", "10px").attr("font-weight", "600").text("점수 ↑");
+      }
+
+      // ─── Target Cards ───
+      function renderTargets(rows) {
+        const grid = d3.select("#targetGrid");
+        grid.selectAll("*").remove();
+
+        const sorted = rows.slice().sort((a, b) => d3.descending(a.urgency, b.urgency)).slice(0, 18);
+        const maxPoint = d3.max(data, d => d.point_mean) || 6;
+
+        sorted.forEach((d, i) => {
+          const card = grid.append("div")
+            .attr("class", `target-card${i < 3 ? " top3" : ""}`)
+            .on("mousemove", (e) => {
+              showTip(`<b>조</b>: ${d.group_id}<br/><b>추천 이유</b>: 점수 낮음 + 이탈/온라인/낮은 다양성<br/><span style="color:#8b9dc3">→ What-if 페이지에서 해결책을 적용해 보세요.</span>`, e);
+            })
+            .on("mouseleave", hideTip);
+
+          const rank = card.append("div").attr("class", "target-rank");
+          rank.append("span").text(`#${i + 1}`);
+          if (i < 3) rank.append("span").attr("class", "badge-urgent").text("긴급");
+
+          card.append("div").attr("class", "target-name").text(d.group_id);
+
+          // Mini bar rows
+          const bars = [
+            { label: "점수", value: d.point_mean, max: maxPoint, color: "var(--accent)", fmt: fmt },
+            { label: "이탈", value: d.leave_rate, max: 1, color: "var(--red)", fmt: pct },
+            { label: "온라인", value: d.online_ratio, max: 1, color: "var(--orange)", fmt: fmt },
+            { label: "다양성", value: d.major_diversity, max: 1, color: "var(--purple)", fmt: fmt }
+          ];
+
+          bars.forEach(b => {
+            if (b.value == null) return;
+            const row = card.append("div").attr("class", "target-bar-row");
+            row.append("div").attr("class", "target-bar-label").text(b.label);
+            const track = row.append("div").attr("class", "target-bar-track");
+            track.append("div").attr("class", "target-bar-fill")
+              .style("width", `${clamp(b.value / b.max, 0, 1) * 100}%`)
+              .style("background", b.color);
+            row.append("div").attr("class", "target-bar-val").text(b.fmt(b.value));
+          });
+        });
+      }
+
+      function update() {
+        const rows = filtered();
+        renderKPIs(rows);
+        renderHist(rows);
+        renderRank(rows);
+        renderScatter(rows);
+        renderTargets(rows);
+      }
+
+      update();
+      window.addEventListener("resize", () => update());
+
+    }).catch(err => {
+      console.error(err);
+      alert("데이터 로드 실패: index.html과 group_dashboard.csv가 같은 폴더인지 확인하세요.");
+    });
+  </script>
+</body>
+
+</html>

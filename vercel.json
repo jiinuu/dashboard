@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).csv",
+      "headers": [
+        { "key": "Content-Type", "value": "text/csv; charset=utf-8" }
+      ]
+    }
+  ]
+}

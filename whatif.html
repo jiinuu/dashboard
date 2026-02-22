@@ -1,0 +1,1218 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>What-if 시뮬레이션 | 해결책 적용</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0a0f1e;
+      --bg-secondary: #111827;
+      --bg-card: rgba(30, 41, 70, 0.55);
+      --bg-card-hover: rgba(40, 55, 90, 0.65);
+      --border: rgba(99, 130, 190, 0.18);
+      --border-glow: rgba(99, 180, 255, 0.35);
+      --text-primary: #e8edf5;
+      --text-secondary: #8b9dc3;
+      --text-muted: #5a6d8e;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.15);
+      --red: #f43f5e;
+      --red-dim: rgba(244, 63, 94, 0.15);
+      --orange: #f59e0b;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, var(--bg-primary) 0%, #0d1529 50%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px 24px 40px;
+    }
+
+    /* ─── Top Bar ─── */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 18px 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+    }
+
+    .topbar h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #e0e7ff, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .topbar .sub {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .pill {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 999px;
+      text-decoration: none;
+      color: var(--text-secondary);
+      background: rgba(15, 23, 42, 0.6);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.25s;
+    }
+
+    .pill:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+
+    /* ─── Flow Guide ─── */
+    .flow-guide {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 16px 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }
+
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+
+    .flow-step.active {
+      background: var(--accent-glow);
+    }
+
+    .flow-num {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      background: rgba(59, 130, 246, 0.2);
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .flow-step.active .flow-num {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .flow-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .flow-step.active .flow-label {
+      color: var(--text-primary);
+    }
+
+    .flow-arrow {
+      font-size: 18px;
+      color: var(--text-muted);
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Main Grid ─── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ─── Card ─── */
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: border-color 0.3s;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 130, 190, 0.3);
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text-primary);
+    }
+
+    .card-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    /* ─── Step Cards ─── */
+    .step-card {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .step-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* ─── Select & Controls ─── */
+    select {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(15, 23, 42, 0.5);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+      background: var(--accent-glow);
+    }
+
+    /* ─── Slider ─── */
+    .slider-group {
+      margin-bottom: 16px;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .slider-label span {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .slider-value {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--accent);
+      min-width: 50px;
+      text-align: right;
+    }
+
+    .slider-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-style: italic;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: linear-gradient(90deg, var(--accent), rgba(59, 130, 246, 0.2));
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid var(--bg-primary);
+      box-shadow: 0 0 10px var(--accent-glow);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid var(--bg-primary);
+      box-shadow: 0 0 10px var(--accent-glow);
+      cursor: pointer;
+    }
+
+    /* ─── Preset Cards ─── */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .preset-card {
+      padding: 10px;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.25s;
+    }
+
+    .preset-card:hover,
+    .preset-card.active {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+    }
+
+    .preset-icon {
+      font-size: 22px;
+      margin-bottom: 4px;
+    }
+
+    .preset-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .preset-desc {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ─── Right Panel ─── */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ─── Insight Banner ─── */
+    .insight-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.5;
+      transition: all 0.4s;
+    }
+
+    .insight-banner.positive {
+      background: var(--green-dim);
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+
+    .insight-banner.negative {
+      background: var(--red-dim);
+      border-color: rgba(244, 63, 94, 0.3);
+    }
+
+    .insight-banner.neutral {
+      background: var(--bg-card);
+    }
+
+    .insight-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+
+    .insight-text {
+      color: var(--text-primary);
+    }
+
+    .insight-text .highlight {
+      font-weight: 800;
+    }
+
+    .insight-text .positive-val {
+      color: var(--green);
+    }
+
+    .insight-text .negative-val {
+      color: var(--red);
+    }
+
+    /* ─── Gauge Grid ─── */
+    .gauge-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .gauge-card {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+      transition: all 0.3s;
+    }
+
+    .gauge-card:hover {
+      border-color: rgba(99, 130, 190, 0.35);
+    }
+
+    .gauge-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .gauge-svg {
+      width: 100%;
+      height: 120px;
+    }
+
+    .gauge-delta {
+      font-size: 15px;
+      font-weight: 800;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .gauge-delta.up {
+      color: var(--green);
+    }
+
+    .gauge-delta.down {
+      color: var(--red);
+    }
+
+    .gauge-delta.neutral {
+      color: var(--text-muted);
+    }
+
+    .gauge-values {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ─── Butterfly Chart ─── */
+    .chart-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .chart-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .chart-tab {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(15, 23, 42, 0.4);
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .chart-tab.active {
+      background: var(--accent-glow);
+      color: var(--accent);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .chart-tab:hover:not(.active) {
+      color: var(--text-secondary);
+    }
+
+    svg text {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .butterfly-svg {
+      width: 100%;
+      height: 420px;
+    }
+
+    /* ─── Tooltip ─── */
+    .tooltip {
+      position: fixed;
+      pointer-events: none;
+      opacity: 0;
+      background: rgba(10, 15, 30, 0.95);
+      backdrop-filter: blur(12px);
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      line-height: 1.6;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      transform: translate(12px, 12px);
+      max-width: 300px;
+      z-index: 1000;
+    }
+
+    /* ─── Details ─── */
+    details {
+      background: rgba(15, 23, 42, 0.3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    details .detail-body {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    /* ─── Animations ─── */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-in {
+      animation: fadeInUp 0.4s ease-out both;
+    }
+
+    .delay-1 {
+      animation-delay: 0.1s;
+    }
+
+    .delay-2 {
+      animation-delay: 0.2s;
+    }
+
+    .delay-3 {
+      animation-delay: 0.3s;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top Bar -->
+  <div class="topbar animate-in">
+    <div>
+      <h1>🔧 What-if 시뮬레이션</h1>
+      <div class="sub">"해결책을 적용했다면?" — 레버를 움직여 <b>점수·이탈·우수</b> 변화를 즉시 확인합니다.</div>
+    </div>
+    <a class="pill" href="index.html">⬅️ 현황 대시보드로</a>
+  </div>
+
+  <!-- Flow Guide -->
+  <div class="flow-guide animate-in delay-1">
+    <div class="flow-step active" id="flowStep1">
+      <div class="flow-num">1</div>
+      <div class="flow-label">대상 선택</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" id="flowStep2">
+      <div class="flow-num">2</div>
+      <div class="flow-label">레버 조절</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" id="flowStep3">
+      <div class="flow-num">3</div>
+      <div class="flow-label">결과 확인</div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="main-grid animate-in delay-2">
+
+    <!-- Left: Controls -->
+    <div class="card">
+      <div class="card-title">시나리오 설정</div>
+      <div class="card-desc">대상을 선택하고, 해결책 레버를 조절하세요. 오른쪽 결과가 실시간 반영됩니다.</div>
+
+      <!-- STEP 1 -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-badge">STEP 1</span>
+          <span class="step-title">대상 선택</span>
+        </div>
+        <select id="groupSelect"></select>
+        <div class="btn-row">
+          <button id="allBtn">전체 보기</button>
+          <button id="resetBtn">초기화</button>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-badge">STEP 2</span>
+          <span class="step-title">해결책 레버 조절</span>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>🏫 오프라인/동기 활동 강화</span>
+            <span class="slider-value" id="vOnlineDelta">0.00</span>
+          </div>
+          <input id="onlineDelta" type="range" min="-0.50" max="0.50" step="0.05" value="0.00">
+          <div class="slider-hint" id="hintOnline">온라인비중 변화 없음</div>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>🎓 전공다양성 강화</span>
+            <span class="slider-value" id="vDivDelta">0.00</span>
+          </div>
+          <input id="divDelta" type="range" min="0.00" max="0.50" step="0.05" value="0.00">
+          <div class="slider-hint" id="hintDiv">다양성 변화 없음</div>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>🛡️ 조기개입 (이탈위험 감소율)</span>
+            <span class="slider-value" id="vIntervene">0%</span>
+          </div>
+          <input id="intervene" type="range" min="0.00" max="0.80" step="0.05" value="0.00">
+          <div class="slider-hint" id="hintIntervene">조기개입 없음</div>
+        </div>
+
+        <div class="preset-grid">
+          <div class="preset-card" data-od="-0.20" data-dd="0.00" data-itv="0.20">
+            <div class="preset-icon">🏫</div>
+            <div class="preset-name">오프라인 강화</div>
+            <div class="preset-desc">대면 활동 확대</div>
+          </div>
+          <div class="preset-card" data-od="0.00" data-dd="0.20" data-itv="0.00">
+            <div class="preset-icon">🎓</div>
+            <div class="preset-name">다양성 강화</div>
+            <div class="preset-desc">조편성 가이드</div>
+          </div>
+          <div class="preset-card" data-od="-0.10" data-dd="0.10" data-itv="0.40">
+            <div class="preset-icon">⭐</div>
+            <div class="preset-name">균형 패키지</div>
+            <div class="preset-desc">추천 조합</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details -->
+      <details>
+        <summary>📊 통계/모델 설명(쉽게)</summary>
+        <div class="detail-body">
+          • 이미 만들어 둔 예측값(점수/이탈/우수)을 바탕으로, 웹에서 즉시 반응하는 <b>단순 근사모델</b>을 사용합니다.<br />
+          • "정확한 미래 예언"이 아니라, <b>정책 방향성 비교</b>를 위한 도구입니다.<br />
+          • 좋은 방향: <b style="color:var(--green)">점수↑</b>, <b style="color:var(--green)">이탈위험↓</b><br />
+          • <b style="color:var(--orange)">⚠ 우수확률 해석 주의</b>: 우수확률 예측모델에서 전공다양성과 우수확률이 <b>역방향 관계</b>(다양성↑ → 우수확률↓)를 보입니다.
+          이는 원본 예측데이터의 상관구조 때문이며, <b>점수·이탈 지표를 우선</b>하여 해석하시길 권합니다.
+        </div>
+      </details>
+    </div>
+
+    <!-- Right: Results -->
+    <div class="right-panel">
+
+      <!-- Insight Banner -->
+      <div class="insight-banner neutral" id="insightBanner">
+        <div class="insight-icon">💡</div>
+        <div class="insight-text" id="insightText">
+          슬라이더를 움직여 시나리오를 설정해 보세요.
+        </div>
+      </div>
+
+      <!-- Gauge Cards -->
+      <div class="gauge-grid" id="gaugeGrid">
+        <div class="gauge-card" id="gaugeScore">
+          <div class="gauge-title">📈 점수 예측</div>
+          <svg class="gauge-svg" id="gaugeSvgScore"></svg>
+          <div class="gauge-delta neutral" id="deltaScore">Δ 0.000</div>
+          <div class="gauge-values" id="valScore">기준: — → What-if: —</div>
+        </div>
+        <div class="gauge-card" id="gaugeLeave">
+          <div class="gauge-title">🚪 이탈위험</div>
+          <svg class="gauge-svg" id="gaugeSvgLeave"></svg>
+          <div class="gauge-delta neutral" id="deltaLeave">Δ 0.0%</div>
+          <div class="gauge-values" id="valLeave">기준: — → What-if: —</div>
+        </div>
+        <div class="gauge-card" id="gaugeExc">
+          <div class="gauge-title">🏆 우수확률 <span style="font-size:9px;color:var(--orange);font-weight:400;">⚠ 참고용</span>
+          </div>
+          <svg class="gauge-svg" id="gaugeSvgExc"></svg>
+          <div class="gauge-delta neutral" id="deltaExc">Δ 0.0%</div>
+          <div class="gauge-values" id="valExc">기준: — → What-if: —</div>
+          <div style="font-size:9px;color:var(--text-muted);margin-top:4px;">※ 다양성↑ 시 역방향 가능 (모델 한계)</div>
+        </div>
+      </div>
+
+      <!-- Butterfly Chart -->
+      <div class="chart-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div class="card-title">조별 기준 vs What-if 비교</div>
+          <div class="chart-tabs" id="chartTabs">
+            <div class="chart-tab active" data-metric="point">점수</div>
+            <div class="chart-tab" data-metric="leave">이탈위험</div>
+            <div class="chart-tab" data-metric="exc">우수확률</div>
+          </div>
+        </div>
+        <div class="card-desc">왼쪽(기준)과 오른쪽(What-if)을 비교합니다. <span style="color:var(--green)">🟢 개선</span> / <span
+            style="color:var(--red)">🔴 악화</span></div>
+        <svg class="butterfly-svg" id="butterflySvg"></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tip"></div>
+
+  <script>
+    const DATA_FILE = "group_dashboard.csv";
+    const fmt = d3.format(",.3~f");
+    const pct = d3.format(".1%");
+
+    const tip = d3.select("#tip");
+    function showTip(html, e) {
+      tip.style("opacity", 1).html(html)
+        .style("left", (e.clientX) + "px").style("top", (e.clientY) + "px");
+    }
+    function hideTip() { tip.style("opacity", 0); }
+    function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+    function toNum(x) { const v = +x; return Number.isFinite(v) ? v : null; }
+
+    // ─── OLS helpers ───
+    function matMul(A, B) { const m = A.length, n = A[0].length, p = B[0].length; const out = Array.from({ length: m }, () => Array(p).fill(0)); for (let i = 0; i < m; i++)for (let k = 0; k < n; k++) { const aik = A[i][k]; for (let j = 0; j < p; j++)out[i][j] += aik * B[k][j]; } return out; }
+    function matT(A) { const m = A.length, n = A[0].length; const out = Array.from({ length: n }, () => Array(m).fill(0)); for (let i = 0; i < m; i++)for (let j = 0; j < n; j++)out[j][i] = A[i][j]; return out; }
+    function matInv(M) { const n = M.length; const A = M.map(r => r.slice()); const I = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => i === j ? 1 : 0)); for (let col = 0; col < n; col++) { let pivot = col; for (let r = col + 1; r < n; r++)if (Math.abs(A[r][col]) > Math.abs(A[pivot][col])) pivot = r; if (Math.abs(A[pivot][col]) < 1e-12) return null;[A[col], A[pivot]] = [A[pivot], A[col]];[I[col], I[pivot]] = [I[pivot], I[col]]; const div = A[col][col]; for (let j = 0; j < n; j++) { A[col][j] /= div; I[col][j] /= div; } for (let r = 0; r < n; r++) { if (r === col) continue; const f = A[r][col]; for (let j = 0; j < n; j++) { A[r][j] -= f * A[col][j]; I[r][j] -= f * I[col][j]; } } } return I; }
+    function fitOLS(rows, yKey, xKeys) { const X = [], Y = []; rows.forEach(d => { const y = toNum(d[yKey]); if (y == null) return; const xs = [1]; for (const k of xKeys) { const v = toNum(d[k]); if (v == null) return; xs.push(v); } X.push(xs); Y.push([y]); }); if (X.length < xKeys.length + 2) return null; const Xt = matT(X), XtX = matMul(Xt, X), inv = matInv(XtX); if (!inv) return null; const XtY = matMul(Xt, Y); const B = matMul(inv, XtY).map(r => r[0]); return { coeffs: B, xKeys: xKeys.slice() }; }
+    function predictOLS(model, obj) { const xs = [1]; for (const k of model.xKeys) xs.push(toNum(obj[k]) ?? 0); let y = 0; for (let i = 0; i < model.coeffs.length; i++)y += model.coeffs[i] * xs[i]; return y; }
+
+    // ─── Gauge drawing ───
+    function drawGauge(svgId, baseVal, whatVal, minVal, maxVal, fmtFn) {
+      const svg = d3.select(svgId);
+      svg.selectAll("*").remove();
+
+      const w = svg.node().clientWidth || 160;
+      const h = 120;
+      const cx = w / 2, cy = h - 10;
+      const r = Math.min(w / 2 - 10, 65);
+      const startAngle = -Math.PI * 0.8;
+      const endAngle = Math.PI * 0.8;
+      const range = maxVal - minVal;
+
+      // Background arc
+      const bgArc = d3.arc().innerRadius(r - 10).outerRadius(r)
+        .startAngle(startAngle).endAngle(endAngle);
+
+      const g = svg.append("g").attr("transform", `translate(${cx},${cy})`);
+
+      g.append("path").attr("d", bgArc()).attr("fill", "rgba(99,130,190,0.1)");
+
+      // Base value arc
+      const baseAngle = startAngle + (clamp(baseVal, minVal, maxVal) - minVal) / range * (endAngle - startAngle);
+      const baseArc = d3.arc().innerRadius(r - 10).outerRadius(r)
+        .startAngle(startAngle).endAngle(baseAngle);
+      g.append("path").attr("d", baseArc()).attr("fill", "rgba(99,130,190,0.25)");
+
+      // What-if arc
+      const whatAngle = startAngle + (clamp(whatVal, minVal, maxVal) - minVal) / range * (endAngle - startAngle);
+      const delta = whatVal - baseVal;
+      const color = Math.abs(delta) < 0.001 ? "rgba(99,130,190,0.5)" : (delta > 0 ? "#22c55e" : "#f43f5e");
+
+      const whatArc = d3.arc().innerRadius(r - 10).outerRadius(r)
+        .startAngle(startAngle).endAngle(whatAngle);
+      g.append("path")
+        .attr("d", whatArc())
+        .attr("fill", color)
+        .attr("opacity", 0.8);
+
+      // Needle for base
+      const needleLen = r - 16;
+      const bx = Math.cos(baseAngle - Math.PI / 2) * needleLen;
+      const by = Math.sin(baseAngle - Math.PI / 2) * needleLen;
+      g.append("line")
+        .attr("x1", 0).attr("y1", 0).attr("x2", bx).attr("y2", by)
+        .attr("stroke", "rgba(99,130,190,0.4)").attr("stroke-width", 2)
+        .attr("stroke-dasharray", "3,3");
+
+      // Needle for what-if
+      const wx = Math.cos(whatAngle - Math.PI / 2) * needleLen;
+      const wy = Math.sin(whatAngle - Math.PI / 2) * needleLen;
+      g.append("line")
+        .attr("x1", 0).attr("y1", 0).attr("x2", wx).attr("y2", wy)
+        .attr("stroke", color).attr("stroke-width", 2.5);
+
+      // Center dot
+      g.append("circle").attr("r", 4).attr("fill", color);
+
+      // Value labels
+      g.append("text")
+        .attr("y", -r + 20)
+        .attr("text-anchor", "middle")
+        .attr("fill", color)
+        .attr("font-size", "16px")
+        .attr("font-weight", "800")
+        .text(fmtFn(whatVal));
+
+      // Min/Max labels
+      const minPt = { x: Math.cos(startAngle - Math.PI / 2) * (r + 8), y: Math.sin(startAngle - Math.PI / 2) * (r + 8) };
+      const maxPt = { x: Math.cos(endAngle - Math.PI / 2) * (r + 8), y: Math.sin(endAngle - Math.PI / 2) * (r + 8) };
+      g.append("text").attr("x", minPt.x).attr("y", minPt.y - 2)
+        .attr("text-anchor", "middle").attr("fill", "#5a6d8e").attr("font-size", "9px")
+        .text(fmtFn(minVal));
+      g.append("text").attr("x", maxPt.x).attr("y", maxPt.y - 2)
+        .attr("text-anchor", "middle").attr("fill", "#5a6d8e").attr("font-size", "9px")
+        .text(fmtFn(maxVal));
+    }
+
+    // ─── Main ───
+    Promise.all([d3.csv(DATA_FILE)]).then(([raw]) => {
+      const data = raw.map(d => ({
+        group_id: (d.group_id ?? "").trim(),
+        online_ratio: toNum(d.online_ratio),
+        master_ratio: toNum(d.master_ratio),
+        major_diversity: toNum(d.major_diversity),
+        pred_point: toNum(d.pred_point_mean_oof),
+        pred_leave: toNum(d.pred_leave_prob),
+        pred_exc: toNum(d.pred_exc_prob)
+      })).filter(d => d.group_id);
+
+      const leaveModel = fitOLS(data, "pred_leave", ["online_ratio", "major_diversity", "master_ratio"]);
+      const pointModel = fitOLS(data.map(d => ({ ...d, leave_for_point: d.pred_leave })), "pred_point", ["online_ratio", "major_diversity", "master_ratio", "leave_for_point"]);
+      const excModel = fitOLS(data.map(d => ({ ...d, leave_for_exc: d.pred_leave })), "pred_exc", ["online_ratio", "major_diversity", "master_ratio", "leave_for_exc"]);
+      if (!leaveModel || !pointModel || !excModel) { alert("근사모델 생성 실패: 결측치/컬럼을 확인하세요."); return; }
+
+      const groups = ["ALL", ...Array.from(new Set(data.map(d => d.group_id))).sort()];
+      const sel = d3.select("#groupSelect");
+      sel.selectAll("option").data(groups).join("option").attr("value", d => d).text(d => d === "ALL" ? "전체 (ALL)" : d);
+
+      const onlineDelta = d3.select("#onlineDelta");
+      const divDelta = d3.select("#divDelta");
+      const intervene = d3.select("#intervene");
+
+      let activeMetric = "point";
+
+      function readParams() {
+        const od = +onlineDelta.property("value");
+        const dd = +divDelta.property("value");
+        const itv = +intervene.property("value");
+        d3.select("#vOnlineDelta").text(od > 0 ? `+${fmt(od)}` : fmt(od));
+        d3.select("#vDivDelta").text(dd > 0 ? `+${fmt(dd)}` : fmt(dd));
+        d3.select("#vIntervene").text(d3.format(".0%")(itv));
+
+        // Hints
+        d3.select("#hintOnline").text(od < 0 ? "오프라인 강화 → 점수↑ 이탈↓ 🏫" : (od > 0 ? "온라인 증가 → 점수↓ 위험" : "온라인비중 변화 없음"));
+        d3.select("#hintDiv").text(dd > 0 ? `다양성 +${fmt(dd)} → 점수↑ 이탈↓ (우수확률은 역방향 주의) 🎓` : "다양성 변화 없음");
+        d3.select("#hintIntervene").text(itv > 0 ? `이탈위험 ${d3.format(".0%")(itv)} 감소 개입 🛡️` : "조기개입 없음");
+
+        return { od, dd, itv };
+      }
+
+      d3.select("#resetBtn").on("click", () => {
+        onlineDelta.property("value", "0.00");
+        divDelta.property("value", "0.00");
+        intervene.property("value", "0.00");
+        d3.selectAll(".preset-card").classed("active", false);
+        update(sel.property("value"));
+      });
+      d3.select("#allBtn").on("click", () => { sel.property("value", "ALL"); update("ALL"); });
+      sel.on("change", e => update(e.target.value));
+      onlineDelta.on("input", () => { d3.selectAll(".preset-card").classed("active", false); update(sel.property("value")); });
+      divDelta.on("input", () => { d3.selectAll(".preset-card").classed("active", false); update(sel.property("value")); });
+      intervene.on("input", () => { d3.selectAll(".preset-card").classed("active", false); update(sel.property("value")); });
+
+      d3.selectAll(".preset-card").on("click", function () {
+        d3.selectAll(".preset-card").classed("active", false);
+        d3.select(this).classed("active", true);
+        onlineDelta.property("value", this.getAttribute("data-od"));
+        divDelta.property("value", this.getAttribute("data-dd"));
+        intervene.property("value", this.getAttribute("data-itv"));
+        update(sel.property("value"));
+      });
+
+      d3.selectAll(".chart-tab").on("click", function () {
+        d3.selectAll(".chart-tab").classed("active", false);
+        d3.select(this).classed("active", true);
+        activeMetric = this.getAttribute("data-metric");
+        update(sel.property("value"));
+      });
+
+      function withScenario(d, p) {
+        const online2 = clamp((d.online_ratio ?? 0) + p.od, 0, 1);
+        const div2 = clamp((d.major_diversity ?? 0) + p.dd, 0, 1);
+        const m = d.master_ratio ?? 0;
+        const leaveBase = clamp(predictOLS(leaveModel, { online_ratio: online2, major_diversity: div2, master_ratio: m }), 0, 1);
+        const leave2 = clamp(leaveBase * (1 - p.itv), 0, 1);
+        const point2 = predictOLS(pointModel, { online_ratio: online2, major_diversity: div2, master_ratio: m, leave_for_point: leave2 });
+        const exc2 = clamp(predictOLS(excModel, { online_ratio: online2, major_diversity: div2, master_ratio: m, leave_for_exc: leave2 }), 0, 1);
+        return { ...d, online2, div2, leave2, point2, exc2 };
+      }
+
+      // ─── Update Gauges ───
+      function updateGauges(rows) {
+        const n = rows.length;
+        if (!n) return;
+        const baseP = d3.mean(rows, d => d.pred_point);
+        const whatP = d3.mean(rows, d => d.point2);
+        const baseL = d3.mean(rows, d => d.pred_leave);
+        const whatL = d3.mean(rows, d => d.leave2);
+        const baseE = d3.mean(rows, d => d.pred_exc);
+        const whatE = d3.mean(rows, d => d.exc2);
+
+        // Score gauge
+        const pMin = d3.min(data, d => d.pred_point) - 0.5;
+        const pMax = d3.max(data, d => d.pred_point) + 0.5;
+        drawGauge("#gaugeSvgScore", baseP, whatP, pMin, pMax, fmt);
+
+        const dP = whatP - baseP;
+        d3.select("#deltaScore")
+          .attr("class", `gauge-delta ${dP > 0.001 ? "up" : (dP < -0.001 ? "down" : "neutral")}`)
+          .text(`${dP > 0 ? "+" : ""}${fmt(dP)}`);
+        d3.select("#valScore").text(`기준: ${fmt(baseP)} → What-if: ${fmt(whatP)}`);
+
+        // Leave gauge (inverted: lower is better)
+        drawGauge("#gaugeSvgLeave", baseL, whatL, 0, 0.8, pct);
+        const dL = whatL - baseL;
+        d3.select("#deltaLeave")
+          .attr("class", `gauge-delta ${dL < -0.001 ? "up" : (dL > 0.001 ? "down" : "neutral")}`)
+          .text(`${dL > 0 ? "+" : ""}${pct(dL)}`);
+        d3.select("#valLeave").text(`기준: ${pct(baseL)} → What-if: ${pct(whatL)}`);
+
+        // Exc gauge
+        drawGauge("#gaugeSvgExc", baseE, whatE, 0, 1, pct);
+        const dE = whatE - baseE;
+        d3.select("#deltaExc")
+          .attr("class", `gauge-delta ${dE > 0.001 ? "up" : (dE < -0.001 ? "down" : "neutral")}`)
+          .text(`${dE > 0 ? "+" : ""}${pct(dE)}`);
+        d3.select("#valExc").text(`기준: ${pct(baseE)} → What-if: ${pct(whatE)}`);
+
+        // Insight Banner
+        updateInsight(dP, dL, dE, n);
+      }
+
+      function updateInsight(dP, dL, dE, n) {
+        const banner = d3.select("#insightBanner");
+        const textEl = d3.select("#insightText");
+        const iconEl = d3.select(".insight-icon");
+
+        // Primary metrics: Score and Leave (reliable)
+        // Exc is secondary (model has counterintuitive diversity coefficient)
+        const scoreGood = dP > 0.001;
+        const scoreBad = dP < -0.001;
+        const leaveGood = dL < -0.001;
+        const leaveBad = dL > 0.001;
+
+        const primaryPositive = (scoreGood ? 1 : 0) + (leaveGood ? 1 : 0);
+        const primaryNegative = (scoreBad ? 1 : 0) + (leaveBad ? 1 : 0);
+        const noChange = !scoreGood && !scoreBad && !leaveGood && !leaveBad;
+
+        if (noChange && Math.abs(dE) < 0.001) {
+          banner.attr("class", "insight-banner neutral");
+          iconEl.text("💡");
+          textEl.html("슬라이더를 움직여 시나리오를 설정해 보세요.");
+        } else if (primaryPositive > 0 && primaryNegative === 0) {
+          banner.attr("class", "insight-banner positive");
+          iconEl.text("✅");
+          let msg = `<b>${n}개 조</b> 대상 — `;
+          const parts = [];
+          if (scoreGood) parts.push(`점수 <span class="positive-val highlight">+${fmt(dP)}</span>`);
+          if (leaveGood) parts.push(`이탈 <span class="positive-val highlight">${pct(dL)}</span>`);
+          msg += parts.join(", ");
+          if (Math.abs(dE) > 0.001) {
+            msg += ` | 우수확률 ${dE > 0 ? "+" : ""}${pct(dE)} <span style="color:var(--orange);font-size:11px;">(참고)</span>`;
+          }
+          msg += " — <b>긍정적 시나리오</b>";
+          textEl.html(msg);
+        } else if (primaryNegative > 0 && primaryPositive === 0) {
+          banner.attr("class", "insight-banner negative");
+          iconEl.text("⚠️");
+          let msg = `<b>${n}개 조</b> 대상 — `;
+          const parts = [];
+          if (scoreBad) parts.push(`점수 <span class="negative-val highlight">${fmt(dP)}</span>`);
+          if (leaveBad) parts.push(`이탈 <span class="negative-val highlight">+${pct(dL)}</span>`);
+          msg += parts.join(", ") + " — <b>주의 필요</b>";
+          textEl.html(msg);
+        } else {
+          // Mixed: some primary metrics good, some bad
+          banner.attr("class", primaryPositive >= primaryNegative ? "insight-banner positive" : "insight-banner negative");
+          iconEl.text(primaryPositive >= primaryNegative ? "🔄" : "⚠️");
+          let msg = `<b>${n}개 조</b> 대상 — `;
+          const parts = [];
+          if (scoreGood) parts.push(`점수 <span class="positive-val">+${fmt(dP)}</span>`);
+          if (scoreBad) parts.push(`점수 <span class="negative-val">${fmt(dP)}</span>`);
+          if (leaveGood) parts.push(`이탈 <span class="positive-val">${pct(dL)}</span>`);
+          if (leaveBad) parts.push(`이탈 <span class="negative-val">+${pct(dL)}</span>`);
+          msg += parts.join(", ") + " — <b>혼합 결과 (세부사항 확인)</b>";
+          textEl.html(msg);
+        }
+      }
+
+      // ─── Butterfly Chart ───
+      function renderButterfly(allRows, selected) {
+        const svg = d3.select("#butterflySvg");
+        svg.selectAll("*").remove();
+        const w = svg.node().clientWidth;
+        const h = 420;
+        const margin = { top: 10, right: 20, bottom: 30, left: 20 };
+
+        const metricConf = {
+          point: { base: "pred_point", what: "point2", label: "점수", fmt: fmt, invertGood: false },
+          leave: { base: "pred_leave", what: "leave2", label: "이탈위험", fmt: pct, invertGood: true },
+          exc: { base: "pred_exc", what: "exc2", label: "우수확률", fmt: pct, invertGood: false }
+        };
+        const mc = metricConf[activeMetric];
+
+        const shown = (selected === "ALL") ? allRows : allRows.filter(d => d.group_id === selected);
+        const sorted = shown.slice()
+          .sort((a, b) => d3.descending(Math.abs(a[mc.what] - a[mc.base]), Math.abs(b[mc.what] - b[mc.base])))
+          .slice(0, selected === "ALL" ? 20 : shown.length);
+
+        if (sorted.length === 0) {
+          svg.append("text").attr("x", w / 2).attr("y", h / 2).attr("text-anchor", "middle")
+            .attr("fill", "#5a6d8e").attr("font-size", "13px").text("표시할 데이터가 없습니다.");
+          return;
+        }
+
+        const mid = w / 2;
+        const maxVal = d3.max(sorted, d => Math.max(Math.abs(d[mc.base]), Math.abs(d[mc.what]))) || 1;
+
+        const y = d3.scaleBand().domain(sorted.map(d => d.group_id))
+          .range([margin.top, h - margin.bottom]).padding(0.25);
+
+        const xLeft = d3.scaleLinear().domain([0, maxVal * 1.1]).range([mid - 10, margin.left]);
+        const xRight = d3.scaleLinear().domain([0, maxVal * 1.1]).range([mid + 10, w - margin.right]);
+
+        const barH = Math.min(y.bandwidth(), 18);
+
+        // Center line
+        svg.append("line")
+          .attr("x1", mid).attr("x2", mid)
+          .attr("y1", margin.top).attr("y2", h - margin.bottom)
+          .attr("stroke", "rgba(99,130,190,0.2)").attr("stroke-width", 1);
+
+        // Labels: 기준 / What-if
+        svg.append("text").attr("x", mid / 2).attr("y", margin.top + 4)
+          .attr("text-anchor", "middle").attr("fill", "#5a6d8e").attr("font-size", "10px").attr("font-weight", "600")
+          .text("◀ 기준 예측");
+        svg.append("text").attr("x", mid + (w - mid) / 2).attr("y", margin.top + 4)
+          .attr("text-anchor", "middle").attr("fill", "#5a6d8e").attr("font-size", "10px").attr("font-weight", "600")
+          .text("What-if ▶");
+
+        const rows = svg.selectAll(".bf-row").data(sorted).join("g")
+          .attr("class", "bf-row")
+          .attr("transform", d => `translate(0,${y(d.group_id) + (y.bandwidth() - barH) / 2})`);
+
+        // Group name
+        rows.append("text")
+          .attr("x", mid).attr("y", barH / 2 + 1)
+          .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
+          .attr("fill", "#8b9dc3").attr("font-size", "10px").attr("font-weight", "600")
+          .text(d => d.group_id);
+
+        // Base bars (left)
+        rows.append("rect")
+          .attr("x", d => xLeft(Math.abs(d[mc.base])))
+          .attr("y", 0)
+          .attr("width", d => Math.abs(xLeft(0) - xLeft(Math.abs(d[mc.base]))))
+          .attr("height", barH)
+          .attr("rx", 4)
+          .attr("fill", "rgba(99,130,190,0.25)")
+          .on("mousemove", (e, d) => {
+            showTip(`<b>${d.group_id}</b><br/><b>기준 ${mc.label}</b>: ${mc.fmt(d[mc.base])}<br/><b>What-if</b>: ${mc.fmt(d[mc.what])}<br/><b>Δ</b>: ${mc.fmt(d[mc.what] - d[mc.base])}`, e);
+          })
+          .on("mouseleave", hideTip);
+
+        // What-if bars (right)
+        rows.append("rect")
+          .attr("x", mid + 10)
+          .attr("y", 0)
+          .attr("width", d => Math.abs(xRight(Math.abs(d[mc.what])) - xRight(0)))
+          .attr("height", barH)
+          .attr("rx", 4)
+          .attr("fill", d => {
+            const delta = d[mc.what] - d[mc.base];
+            const good = mc.invertGood ? (delta < -0.001) : (delta > 0.001);
+            const bad = mc.invertGood ? (delta > 0.001) : (delta < -0.001);
+            return good ? "rgba(34,197,94,0.5)" : (bad ? "rgba(244,63,94,0.4)" : "rgba(99,130,190,0.3)");
+          })
+          .on("mousemove", (e, d) => {
+            showTip(`<b>${d.group_id}</b><br/><b>기준 ${mc.label}</b>: ${mc.fmt(d[mc.base])}<br/><b>What-if</b>: ${mc.fmt(d[mc.what])}<br/><b>Δ</b>: ${mc.fmt(d[mc.what] - d[mc.base])}`, e);
+          })
+          .on("mouseleave", hideTip);
+
+        // Delta badges on right
+        rows.append("text")
+          .attr("x", d => xRight(Math.abs(d[mc.what])) + 6)
+          .attr("y", barH / 2 + 1)
+          .attr("dominant-baseline", "middle")
+          .attr("font-size", "9px").attr("font-weight", "700")
+          .attr("fill", d => {
+            const delta = d[mc.what] - d[mc.base];
+            const good = mc.invertGood ? (delta < -0.001) : (delta > 0.001);
+            const bad = mc.invertGood ? (delta > 0.001) : (delta < -0.001);
+            return good ? "#22c55e" : (bad ? "#f43f5e" : "#5a6d8e");
+          })
+          .text(d => {
+            const delta = d[mc.what] - d[mc.base];
+            if (Math.abs(delta) < 0.001) return "";
+            return (delta > 0 ? "+" : "") + mc.fmt(delta);
+          });
+      }
+
+      // ─── Update flow guide highlights ───
+      function highlightFlow(step) {
+        d3.selectAll(".flow-step").classed("active", false);
+        if (step >= 1) d3.select("#flowStep1").classed("active", true);
+        if (step >= 2) d3.select("#flowStep2").classed("active", true);
+        if (step >= 3) d3.select("#flowStep3").classed("active", true);
+      }
+
+      function update(selected) {
+        const p = readParams();
+        const allRows = data.map(d => withScenario(d, p));
+        const filtered = (selected === "ALL") ? allRows : allRows.filter(d => d.group_id === selected);
+
+        // Highlight flow
+        const anySliderMoved = (p.od !== 0 || p.dd !== 0 || p.itv !== 0);
+        highlightFlow(anySliderMoved ? 3 : (selected !== "ALL" ? 2 : 1));
+
+        updateGauges(filtered);
+        renderButterfly(allRows, selected);
+      }
+
+      update("ALL");
+
+      // Resize handling
+      window.addEventListener("resize", () => update(sel.property("value")));
+
+    }).catch(err => {
+      console.error(err);
+      alert("데이터 로드 실패: whatif.html과 group_dashboard.csv가 같은 폴더인지 확인하세요.");
+    });
+  </script>
+</body>
+
+</html>
