@@ -811,7 +811,7 @@
     function predictOLS(model, obj) { const xs = [1]; for (const k of model.xKeys) xs.push(toNum(obj[k]) ?? 0); let y = 0; for (let i = 0; i < model.coeffs.length; i++)y += model.coeffs[i] * xs[i]; return y; }
 
     // ─── Gauge drawing ───
-    function drawGauge(svgId, baseVal, whatVal, minVal, maxVal, fmtFn) {
+    function drawGauge(svgId, baseVal, whatVal, minVal, maxVal, fmtFn, invertColor) {
       const svg = d3.select(svgId);
       svg.selectAll("*").remove();
 
@@ -837,10 +837,11 @@
         .startAngle(startAngle).endAngle(baseAngle);
       g.append("path").attr("d", baseArc()).attr("fill", "rgba(99,130,190,0.25)");
 
-      // What-if arc
+      // What-if arc (invertColor: for metrics where lower is better, e.g. leave risk)
       const whatAngle = startAngle + (clamp(whatVal, minVal, maxVal) - minVal) / range * (endAngle - startAngle);
       const delta = whatVal - baseVal;
-      const color = Math.abs(delta) < 0.001 ? "rgba(99,130,190,0.5)" : (delta > 0 ? "#22c55e" : "#f43f5e");
+      const goodColor = "#22c55e", badColor = "#f43f5e";
+      const color = Math.abs(delta) < 0.001 ? "rgba(99,130,190,0.5)" : (invertColor ? (delta > 0 ? badColor : goodColor) : (delta > 0 ? goodColor : badColor));
 
       const whatArc = d3.arc().innerRadius(r - 10).outerRadius(r)
         .startAngle(startAngle).endAngle(whatAngle);
@@ -994,7 +995,7 @@
         d3.select("#valScore").text(`기준: ${fmt(baseP)} → What-if: ${fmt(whatP)}`);
 
         // Leave gauge (inverted: lower is better)
-        drawGauge("#gaugeSvgLeave", baseL, whatL, 0, 0.8, pct);
+        drawGauge("#gaugeSvgLeave", baseL, whatL, 0, 0.8, pct, true);
         const dL = whatL - baseL;
         d3.select("#deltaLeave")
           .attr("class", `gauge-delta ${dL < -0.001 ? "up" : (dL > 0.001 ? "down" : "neutral")}`)
