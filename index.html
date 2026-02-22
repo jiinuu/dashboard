@@ -552,8 +552,33 @@
     <div style="min-width:260px;">
       <h1>📊 조별활동 대시보드</h1>
       <div class="sub">"현황 → 원인 → 타겟" 순서로 바로 이해하도록 구성</div>
-      <div style="margin-top:10px;">
-        <a class="pill" href="whatif.html">🔧 What-if 시뮬레이션으로 →</a>
+      <div style="margin-top:12px;">
+        <a href="whatif.html" style="
+          display:inline-flex; align-items:center; gap:10px;
+          padding:12px 24px; border-radius:12px;
+          background:linear-gradient(135deg,#3b82f6,#6366f1);
+          color:#fff; font-size:14px; font-weight:800;
+          text-decoration:none; letter-spacing:-0.02em;
+          box-shadow:0 0 20px rgba(99,102,241,0.45), 0 4px 12px rgba(0,0,0,0.3);
+          transition:transform 0.2s, box-shadow 0.2s;
+          animation:btnPulse 2.5s ease-in-out infinite;
+        " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 0 32px rgba(99,102,241,0.65),0 8px 20px rgba(0,0,0,0.35)';"
+          onmouseout="this.style.transform='';this.style.boxShadow='0 0 20px rgba(99,102,241,0.45),0 4px 12px rgba(0,0,0,0.3)';">
+          🔧 What-if 시뮬레이션으로 →
+        </a>
+        <style>
+          @keyframes btnPulse {
+
+            0%,
+            100% {
+              box-shadow: 0 0 20px rgba(99, 102, 241, 0.45), 0 4px 12px rgba(0, 0, 0, 0.3);
+            }
+
+            50% {
+              box-shadow: 0 0 30px rgba(99, 102, 241, 0.7), 0 6px 16px rgba(0, 0, 0, 0.35);
+            }
+          }
+        </style>
       </div>
     </div>
     <div style="flex:1; min-width:280px;">
@@ -647,6 +672,20 @@
         요인별로 진단됩니다.
       </div>
       <div class="target-grid" id="targetGrid"></div>
+      <div style="margin-top:14px; text-align:center;">
+        <a href="whatif.html" style="
+          display:inline-flex; align-items:center; gap:8px;
+          padding:10px 28px; border-radius:12px;
+          background:linear-gradient(135deg,#3b82f6,#6366f1);
+          color:#fff; font-size:13px; font-weight:800;
+          text-decoration:none; letter-spacing:-0.02em;
+          box-shadow:0 0 18px rgba(99,102,241,0.4), 0 4px 10px rgba(0,0,0,0.3);
+          transition:transform 0.2s, box-shadow 0.2s;
+        " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 0 28px rgba(99,102,241,0.65),0 6px 16px rgba(0,0,0,0.35)';"
+          onmouseout="this.style.transform='';this.style.boxShadow='0 0 18px rgba(99,102,241,0.4),0 4px 10px rgba(0,0,0,0.3)';">
+          🔧 타겟 조에 What-if 시뮬레이션 적용 →
+        </a>
+      </div>
     </div>
   </div>
 
