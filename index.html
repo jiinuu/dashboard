@@ -641,7 +641,11 @@
     </div>
     <div class="card">
       <div class="card-title"><span class="num">5</span> 개입 타겟 리스트</div>
-      <div class="card-desc">"지금 개입하면 효과가 큰 조"를 우선순위로 정리합니다. What-if 페이지에서 해결책을 적용해 보세요.</div>
+      <div class="card-desc">OLS 회귀계수 기반으로 "개선 잠재력"이 높은 조를 우선 정렬합니다.<br />
+        <b style="color:var(--accent)">📉점수 하위</b> + <b style="color:var(--orange)">💻온라인 과다</b>(coeff: -0.44) + <b
+          style="color:var(--purple)">🎓다양성 부족</b>(coeff: +0.76) + <b style="color:var(--red)">🚪이탈 위험</b>(coeff: -0.36)
+        요인별로 진단됩니다.
+      </div>
       <div class="target-grid" id="targetGrid"></div>
     </div>
   </div>
@@ -758,15 +762,64 @@
         if (cls !== "ALL") rows = rows.filter(d => d.class_code === cls);
         if (q) rows = rows.filter(d => d.group_id.includes(q));
 
+        // Compute statistics for the filtered set
         const pVals = rows.map(d => d.point_mean).filter(v => v != null);
         const pMed = pVals.length ? d3.median(pVals) : 0;
+        const pQ25 = pVals.length ? d3.quantile(pVals.sort(d3.ascending), 0.25) : 0;
+        const oVals = rows.map(d => d.online_ratio).filter(v => v != null);
+        const oMed = oVals.length ? d3.median(oVals) : 0;
+        const dVals = rows.map(d => d.major_diversity).filter(v => v != null);
+        const dMed = dVals.length ? d3.median(dVals) : 0;
+        const lVals = rows.map(d => d.leave_rate).filter(v => v != null);
+        const lMed = lVals.length ? d3.median(lVals) : 0;
+
         rows = rows.map(d => {
           const point = d.point_mean ?? pMed;
           const leave = d.leave_rate ?? 0;
           const online = d.online_ratio ?? 0;
           const div = d.major_diversity ?? 0;
-          const urgency = (pMed - point) * 0.9 + leave * 0.9 + online * 0.5 + (1 - div) * 0.5;
-          return { ...d, urgency };
+
+          // === Data-driven urgency scoring ===
+          // Based on verified OLS coefficients:
+          //   online → point: coeff = -0.44 (offline helps)
+          //   diversity → point: coeff = +0.76 (diversity helps)
+          //   leave → point: coeff = -0.36 (less leave helps)
+          //
+          // Score = outcome gap + weighted cause factors
+          // Each component reflects "how much improvement is possible"
+
+          const reasons = [];
+
+          // 1) Outcome gap: how far below median (direct urgency signal)
+          const pointGap = Math.max(0, pMed - point);
+          const pointGapNorm = pVals.length ? pointGap / (d3.max(pVals) - d3.min(pVals) || 1) : 0;
+          if (point <= pQ25) reasons.push({ tag: "점수 하위", icon: "📉", detail: `점수 ${fmt(point)} (중앙값 ${fmt(pMed)} 이하)`, weight: pointGapNorm * 1.0 });
+
+          // 2) Online ratio above median → can improve by going offline
+          //    OLS: online -0.44 → reducing online by 0.1 gains ~0.044 points
+          const onlineExcess = Math.max(0, online - oMed);
+          const onlineScore = onlineExcess * 0.44; // estimated point gain from normalization
+          if (online > oMed + 0.05) reasons.push({ tag: "온라인 과다", icon: "💻", detail: `온라인비중 ${fmt(online)} (중앙값 ${fmt(oMed)} 초과) → 오프라인 전환 시 점수↑`, weight: onlineScore });
+
+          // 3) Diversity below median → can improve by diversifying
+          //    OLS: diversity +0.76 → increasing diversity by 0.1 gains ~0.076 points
+          const divDeficit = Math.max(0, dMed - div);
+          const divScore = divDeficit * 0.76;
+          if (div < dMed - 0.05) reasons.push({ tag: "다양성 부족", icon: "🎓", detail: `전공다양성 ${fmt(div)} (중앙값 ${fmt(dMed)} 미만) → 다양성↑ 시 점수↑`, weight: divScore });
+
+          // 4) Leave rate above median → can improve with intervention
+          //    OLS: leave -0.36 → reducing leave by 0.1 gains ~0.036 points
+          const leaveExcess = Math.max(0, leave - lMed);
+          const leaveScore = leaveExcess * 0.36;
+          if (leave > lMed + 0.01) reasons.push({ tag: "이탈 위험", icon: "🚪", detail: `이탈률 ${pct(leave)} (중앙값 ${pct(lMed)} 초과) → 조기개입 시 점수↑`, weight: leaveScore });
+
+          // Total urgency = outcome gap + sum of improvable cause factors
+          const urgency = pointGapNorm * 1.0 + onlineScore + divScore + leaveScore;
+
+          // Sort reasons by weight descending
+          reasons.sort((a, b) => b.weight - a.weight);
+
+          return { ...d, urgency, reasons };
         });
         if (showTargetsOnly) {
           rows = rows.slice().sort((a, b) => d3.descending(a.urgency, b.urgency)).slice(0, 30);
@@ -1033,37 +1086,89 @@
         const sorted = rows.slice().sort((a, b) => d3.descending(a.urgency, b.urgency)).slice(0, 18);
         const maxPoint = d3.max(data, d => d.point_mean) || 6;
 
+        if (sorted.length === 0 || sorted[0].urgency <= 0) {
+          grid.append("div").style("grid-column", "1/-1").style("text-align", "center")
+            .style("color", "var(--text-muted)").style("padding", "40px 0").style("font-size", "13px")
+            .text("현재 필터에서 개입이 필요한 조가 없습니다.");
+          return;
+        }
+
         sorted.forEach((d, i) => {
+          if (d.urgency <= 0) return; // skip groups with no urgency
+
+          const reasons = d.reasons || [];
+          const topReason = reasons.length > 0 ? reasons[0] : null;
+
+          // Build tooltip with full causal explanation
+          let tipHtml = `<b>조</b>: ${d.group_id}<br/><b>긴급도 점수</b>: ${d.urgency.toFixed(3)}<br/><hr style="border-color:rgba(99,130,190,0.2);margin:6px 0;">`;
+          if (reasons.length === 0) {
+            tipHtml += `<span style="color:#8b9dc3">특이 요인 없음</span>`;
+          } else {
+            tipHtml += `<b>선정 사유 (OLS 계수 기반):</b><br/>`;
+            reasons.forEach((r, ri) => {
+              tipHtml += `${ri + 1}. ${r.icon} ${r.detail}<br/>`;
+            });
+            tipHtml += `<br/><span style="color:#8b9dc3">→ What-if 페이지에서 해결책 시뮬레이션</span>`;
+          }
+
           const card = grid.append("div")
             .attr("class", `target-card${i < 3 ? " top3" : ""}`)
-            .on("mousemove", (e) => {
-              showTip(`<b>조</b>: ${d.group_id}<br/><b>추천 이유</b>: 점수 낮음 + 이탈/온라인/낮은 다양성<br/><span style="color:#8b9dc3">→ What-if 페이지에서 해결책을 적용해 보세요.</span>`, e);
-            })
+            .on("mousemove", (e) => showTip(tipHtml, e))
             .on("mouseleave", hideTip);
 
+          // Header: rank + urgency badge
           const rank = card.append("div").attr("class", "target-rank");
           rank.append("span").text(`#${i + 1}`);
           if (i < 3) rank.append("span").attr("class", "badge-urgent").text("긴급");
 
           card.append("div").attr("class", "target-name").text(d.group_id);
 
-          // Mini bar rows
+          // Diagnosis tags
+          if (reasons.length > 0) {
+            const tagContainer = card.append("div")
+              .style("display", "flex").style("flex-wrap", "wrap").style("gap", "4px")
+              .style("margin-bottom", "8px");
+
+            const tagColors = {
+              "점수 하위": { bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.3)", color: "#60a5fa" },
+              "온라인 과다": { bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", color: "#f59e0b" },
+              "다양성 부족": { bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.3)", color: "#a78bfa" },
+              "이탈 위험": { bg: "rgba(244,63,94,0.12)", border: "rgba(244,63,94,0.3)", color: "#f43f5e" }
+            };
+
+            reasons.forEach(r => {
+              const tc = tagColors[r.tag] || { bg: "rgba(99,130,190,0.1)", border: "rgba(99,130,190,0.2)", color: "#8b9dc3" };
+              tagContainer.append("span")
+                .style("display", "inline-flex").style("align-items", "center").style("gap", "3px")
+                .style("padding", "2px 8px").style("border-radius", "999px")
+                .style("font-size", "9px").style("font-weight", "700")
+                .style("background", tc.bg).style("border", `1px solid ${tc.border}`).style("color", tc.color)
+                .text(`${r.icon} ${r.tag}`);
+            });
+          }
+
+          // Mini bar rows - color-coded by whether they contribute to urgency
           const bars = [
-            { label: "점수", value: d.point_mean, max: maxPoint, color: "var(--accent)", fmt: fmt },
-            { label: "이탈", value: d.leave_rate, max: 1, color: "var(--red)", fmt: pct },
-            { label: "온라인", value: d.online_ratio, max: 1, color: "var(--orange)", fmt: fmt },
-            { label: "다양성", value: d.major_diversity, max: 1, color: "var(--purple)", fmt: fmt }
+            { label: "점수", value: d.point_mean, max: maxPoint, color: "var(--accent)", fmt: fmt, isReason: reasons.some(r => r.tag === "점수 하위") },
+            { label: "이탈", value: d.leave_rate, max: 1, color: "var(--red)", fmt: pct, isReason: reasons.some(r => r.tag === "이탈 위험") },
+            { label: "온라인", value: d.online_ratio, max: 1, color: "var(--orange)", fmt: fmt, isReason: reasons.some(r => r.tag === "온라인 과다") },
+            { label: "다양성", value: d.major_diversity, max: 1, color: "var(--purple)", fmt: fmt, isReason: reasons.some(r => r.tag === "다양성 부족") }
           ];
 
           bars.forEach(b => {
             if (b.value == null) return;
             const row = card.append("div").attr("class", "target-bar-row");
-            row.append("div").attr("class", "target-bar-label").text(b.label);
+            row.append("div").attr("class", "target-bar-label")
+              .style("color", b.isReason ? b.color : "var(--text-muted)")
+              .style("font-weight", b.isReason ? "700" : "400")
+              .text(b.label);
             const track = row.append("div").attr("class", "target-bar-track");
             track.append("div").attr("class", "target-bar-fill")
               .style("width", `${clamp(b.value / b.max, 0, 1) * 100}%`)
-              .style("background", b.color);
-            row.append("div").attr("class", "target-bar-val").text(b.fmt(b.value));
+              .style("background", b.isReason ? b.color : "rgba(99,130,190,0.2)");
+            row.append("div").attr("class", "target-bar-val")
+              .style("color", b.isReason ? b.color : "var(--text-secondary)")
+              .text(b.fmt(b.value));
           });
         });
       }
